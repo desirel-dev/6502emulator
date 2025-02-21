@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>6502 Emulator</title>
+    <style>
+        body { font-family: monospace; }
+        #code { width: 100%; height: 150px; font-size: 16px; }
+        #memory { display: grid; grid-template-columns: repeat(8, 40px); gap: 5px; margin-top: 10px; }
+        .cell { width: 40px; height: 40px; text-align: center; border: 1px solid black; }
+        .registers { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>6502 Emulator</h2>
+    <textarea id="code" placeholder="Enter 6502 assembly..."></textarea>
+    <button onclick="assemble()">Assemble</button>
+    <button onclick="step()">Step</button>
+    <button onclick="reset()">Reset</button>
+    <button onclick="save()">Save</button>
+    <button onclick="load()">Load</button>
+    <div class="registers">
+        <p>A: <span id="regA">00</span> X: <span id="regX">00</span> Y: <span id="regY">00</span> PC: <span id="pc">0000</span></p>
+    </div>
+    <div id="memory"></div>
+
+    <script>
+        let memory = new Uint8Array(64);
+        let registers = { A: 0, X: 0, Y: 0, PC: 0 };
+        let instructions = [];
+
+        function updateDisplay() {
+            document.getElementById("regA").innerText = registers.A.toString(16).padStart(2, '0').toUpperCase();
+            document.getElementById("regX").innerText = registers.X.toString(16).padStart(2, '0').toUpperCase();
+            document.getElementById("regY").innerText = registers.Y.toString(16).padStart(2, '0').toUpperCase();
+            document.getElementById("pc").innerText = registers.PC.toString(16).padStart(4, '0').toUpperCase();
+        }
+
+        function assemble() {
+            const code = document.getElementById("code").value.split('\n');
+            instructions = code.map(line => line.trim()).filter(line => line.length > 0);
+            registers.PC = 0;
+            updateDisplay(); // Dodano aktualizację po asemblacji
+            renderMemory(); // Dodano renderowanie po asemblacji
+        }
+
+        function step() {
+            if (registers.PC >= instructions.length) return;
+            const line = instructions[registers.PC].split(' ');
+            const instr = line[0].toUpperCase();
+            let arg = line.length > 1 ? line[1].replace('#', '') : null;
+
+            // PARSOWANIE ARGUMENTU (obsługa różnych formatów)
+            if (arg !== null) {
+                if (arg.startsWith('$')) { // Adres heksadecymalny np. $20
+                    arg = parseInt(arg.substring(1), 16);
+                } else { // Wartość dziesiętna np. 10
+                    arg = parseInt(arg, 10);
+                }
+            }
+
+            switch (instr) {
+                case 'LDA': registers.A = arg; break;
+                case 'LDX': registers.X = arg; break;
+                case 'LDY': registers.Y = arg; break;
+                case 'STA': 
+                case 'STX':
+                case 'STY':
+                    if (arg !== null && arg >= 0 && arg < memory.length) {
+                        memory[arg] = (instr === 'STA' ? registers.A : (instr === 'STX' ? registers.X : registers.Y));
+                    } else {
+                        console.error("Invalid memory address:", arg);
+                    }
+                    break;
+                case 'INX': registers.X = (registers.X + 1) & 0xFF; break;
+                case 'INY.html': registers.Y = (registers.Y + 1) & 0xFF; break;
+                case 'DEX': registers.X = (registers.X - 1) & 0xFF; break;
+                case 'DEY': registers.Y = (registers.Y - 1) & 0xFF; break;
+                case 'NOP': break;
+                default:
+                    console.error("Unknown instruction:", instr);
+            }
+
+            registers.PC++;
+            updateDisplay();
+            renderMemory();
+        }
+
+        function reset() {
+            registers.PC = 0;
+            registers.A = 0; // Reset A, X, Y
+            registers.X = 0;
+            registers.Y = 0;
+            memory.fill(0); // Wyczyść pamięć
+            updateDisplay();
+            renderMemory();
+        }
+
+        function renderMemory() {
+            const memDiv = document.getElementById("memory");
+            memDiv.innerHTML = "";
+            for (let i = 0; i < 64; i++) {
+                let cell = document.createElement("div");
+                cell.className = "cell";
+                cell.innerText = memory[i].toString(16).padStart(2, '0').toUpperCase();
+                memDiv.appendChild(cell);
+            }
+        }
+
+
+        function save() {
+            const code = document.getElementById("code").value;
+            const blob = new Blob([code], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "program.ass";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function load() {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = ".ass";
+            input.onchange = (event) => {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    document.getElementById("code").value = event.target.result;
+                    assemble(); // Automatycznie asembluj po załadowaniu
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        renderMemory();
+        updateDisplay();
+    </script>
+</body>
+</html>
